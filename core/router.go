@@ -85,7 +85,8 @@ func (r *SpringRouter) dispatch(w http.ResponseWriter, req *http.Request) {
 			paramTypes[i] = handlerType.In(i)
 		}
 
-		args, err := BindArguments(req, req.Context(), paramTypes, pathVars)
+		argNames := route.ParamNames
+		args, err := BindArguments(req, req.Context(), paramTypes, pathVars, argNames)
 		if err != nil {
 			response.Status(httpstatus.BAD_REQUEST).
 				Body(map[string]string{"error": err.Error()}).
