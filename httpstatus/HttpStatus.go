@@ -2,11 +2,12 @@ package httpstatus
 
 import "net/http"
 
-var (
-	OK          = http.StatusOK
-	CREATED     = http.StatusCreated
-	BAD_REQUEST = http.StatusBadRequest
-	NOT_FOUND   = http.StatusNotFound
-	CONFLICT    = http.StatusConflict
-	INTERNAL    = http.StatusInternalServerError
+const (
+	OK                  = http.StatusOK
+	CREATED             = http.StatusCreated
+	NO_CONTENT          = http.StatusNoContent
+	BAD_REQUEST         = http.StatusBadRequest
+	NOT_FOUND           = http.StatusNotFound
+	INTERNAL_SERVER_ERR = http.StatusInternalServerError
+	METHOD_NOT_ALLOWED  = http.StatusMethodNotAllowed
 )
