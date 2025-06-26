@@ -45,4 +45,18 @@ func PostMapping(path string, handler any) {
 	})
 }
 
-// Add PutMapping, DeleteMapping, etc. as needed
+func PutMapping(path string, handler any) {
+	registeredRoutes = append(registeredRoutes, RouteMapping{
+		Method:      "PUT",
+		Path:        path,
+		HandlerFunc: handler,
+	})
+}
+
+func DeleteMapping(path string, handler any) {
+	registeredRoutes = append(registeredRoutes, RouteMapping{
+		Method:      "DELETE",
+		Path:        path,
+		HandlerFunc: handler,
+	})
+}
