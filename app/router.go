@@ -47,11 +47,11 @@ func wrapHandler(method string, handler HandlerFunc) http.HandlerFunc {
 		}
 
 		resp := handler(r)
-		for k, v := range resp.header {
+		for k, v := range resp.Headers {
 			w.Header().Set(k, v)
 		}
 		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(resp.status)
+		w.WriteHeader(resp.StatusCode)
 		if resp.Body != nil {
 			json.NewEncoder(w).Encode(resp.Body)
 		}
