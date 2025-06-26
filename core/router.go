@@ -1,115 +1,144 @@
 package core
 
 import (
-	"log"
 	"net/http"
 	"reflect"
+	"regexp"
+	"strings"
 
-	"github.com/isaacwallace123/GoWeb/decorators"
 	"github.com/isaacwallace123/GoWeb/httpstatus"
 	"github.com/isaacwallace123/GoWeb/response"
 )
 
+type Controller interface {
+	Path() string
+}
+
+type routeEntry struct {
+	Method     string
+	Regex      *regexp.Regexp
+	ParamNames []string
+	Handler    reflect.Value
+	CtrlValue  reflect.Value
+}
+
 type SpringRouter struct {
-	mux *http.ServeMux
+	routes []routeEntry
 }
 
 func NewRouter() *SpringRouter {
-	return &SpringRouter{
-		mux: http.NewServeMux(),
-	}
+	return &SpringRouter{}
 }
 
-func (r *SpringRouter) RegisterControllers() {
-	routeTable := make(map[string]map[string]routeHandler)
+func RegisterControllers(instances ...Controller) *SpringRouter {
+	r := NewRouter()
 
-	for _, route := range decorators.RegisteredRoutes() {
-		for _, ctrl := range decorators.RegisteredControllers() {
-			fullPath := ctrl.BasePath + route.Path
+	for _, inst := range instances {
+		path := inst.Path()
+		re, paramNames := compilePathPattern(path)
+		val := reflect.ValueOf(inst)
+		typ := reflect.TypeOf(inst)
 
-			if routeTable[fullPath] == nil {
-				routeTable[fullPath] = make(map[string]routeHandler)
-			}
+		for i := 0; i < typ.NumMethod(); i++ {
+			m := typ.Method(i)
+			methodName := strings.ToUpper(m.Name)
 
-			if _, exists := routeTable[fullPath][route.Method]; exists {
-				log.Fatalf("Conflict: %s [%s] already registered", fullPath, route.Method)
-			}
-
-			routeTable[fullPath][route.Method] = routeHandler{
-				Controller: ctrl.Instance,
-				Method:     reflect.ValueOf(route.HandlerFunc),
+			if isHTTPMethod(methodName) {
+				r.routes = append(r.routes, routeEntry{
+					Method:     methodName,
+					Regex:      re,
+					ParamNames: paramNames,
+					Handler:    val.Method(i),
+					CtrlValue:  val,
+				})
 			}
 		}
 	}
 
-	for path, methodMap := range routeTable {
-		r.mux.HandleFunc(path, func(w http.ResponseWriter, req *http.Request) {
-			handlerEntry, ok := methodMap[req.Method]
-			if !ok {
-				response.Status(httpstatus.METHOD_NOT_ALLOWED).
-					Body(map[string]string{"error": "Method Not Allowed"}).
-					Send(w)
-				return
-			}
-
-			handler := handlerEntry.Method
-			handlerType := handler.Type()
-			args := []reflect.Value{
-				reflect.ValueOf(handlerEntry.Controller),
-				reflect.ValueOf(req.Context()),
-			}
-
-			if handlerType.NumIn() == 3 {
-				argType := handlerType.In(2)
-				argVal, err := BindJSONBody(req, argType)
-				if err != nil {
-					response.Status(httpstatus.NOT_FOUND).
-						Body(map[string]string{"error": "Not Found"}).
-						Send(w)
-					return
-				}
-				args = append(args, reflect.ValueOf(argVal))
-			}
-
-			if handlerType.NumIn() == 2 {
-				argType := handlerType.In(1)
-				argVal, err := BindJSONBody(req, argType)
-				if err != nil {
-					response.Status(httpstatus.BAD_REQUEST).
-						Body(map[string]string{"error": "Invalid JSON"}).
-						Send(w)
-					return
-				}
-				args = append(args, reflect.ValueOf(argVal))
-			}
-
-			results := handler.Call(args)
-
-			if len(results) != 1 {
-				response.Status(httpstatus.INTERNAL_SERVER_ERR).
-					Body(map[string]string{"error": "Handler must return exactly one value"}).
-					Send(w)
-				return
-			}
-
-			resp, ok := results[0].Interface().(*response.ResponseEntity)
-			if !ok {
-				response.Status(httpstatus.INTERNAL_SERVER_ERR).
-					Body(map[string]string{"error": "Return type must be *response.ResponseEntity"}).
-					Send(w)
-				return
-			}
-
-			resp.Send(w)
-		})
-	}
+	return r
 }
 
 func (r *SpringRouter) Listen(addr string) error {
-	return http.ListenAndServe(addr, r.mux)
+	http.HandleFunc("/", r.dispatch)
+	return http.ListenAndServe(addr, nil)
 }
 
-type routeHandler struct {
-	Controller any
-	Method     reflect.Value
+func (r *SpringRouter) dispatch(w http.ResponseWriter, req *http.Request) {
+	for _, route := range r.routes {
+		if req.Method != route.Method {
+			continue
+		}
+
+		matches := route.Regex.FindStringSubmatch(req.URL.Path)
+		if matches == nil {
+			continue
+		}
+
+		pathVars := map[string]string{}
+		for i, name := range route.ParamNames {
+			pathVars[name] = matches[i+1]
+		}
+
+		handlerType := route.Handler.Type()
+		paramTypes := make([]reflect.Type, handlerType.NumIn())
+		for i := 0; i < handlerType.NumIn(); i++ {
+			paramTypes[i] = handlerType.In(i)
+		}
+
+		args, err := BindArguments(req, req.Context(), paramTypes, pathVars)
+		if err != nil {
+			response.Status(httpstatus.BAD_REQUEST).
+				Body(map[string]string{"error": err.Error()}).
+				Send(w)
+			return
+		}
+
+		result := route.Handler.Call(args)
+
+		if len(result) != 1 {
+			response.Status(httpstatus.INTERNAL_SERVER_ERR).
+				Body(map[string]string{"error": "Expected 1 return value"}).
+				Send(w)
+			return
+		}
+
+		resp, ok := result[0].Interface().(*response.ResponseEntity)
+		if !ok {
+			response.Status(httpstatus.INTERNAL_SERVER_ERR).
+				Body(map[string]string{"error": "Invalid return type"}).
+				Send(w)
+			return
+		}
+
+		final := chainMiddleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			resp.Send(w)
+		}))
+
+		final.ServeHTTP(w, req)
+
+		return
+	}
+
+	response.Status(httpstatus.NOT_FOUND).
+		Body(map[string]string{"error": "Route not found"}).
+		Send(w)
+}
+
+func compilePathPattern(path string) (*regexp.Regexp, []string) {
+	paramRegex := regexp.MustCompile(`\{([^}]+)\}`)
+	paramNames := []string{}
+	regexStr := paramRegex.ReplaceAllStringFunc(path, func(m string) string {
+		name := m[1 : len(m)-1]
+		paramNames = append(paramNames, name)
+		return "([^/]+)"
+	})
+	return regexp.MustCompile("^" + regexStr + "$"), paramNames
+}
+
+func isHTTPMethod(name string) bool {
+	switch name {
+	case "GET", "POST", "PUT", "DELETE":
+		return true
+	}
+	return false
 }

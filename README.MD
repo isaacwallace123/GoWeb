@@ -1,6 +1,6 @@
-# SpringGo — A Spring Boot-style Web Framework in Go
+# GoWeb — A Spring Boot-style Web Framework in Go
 
-SpringGo is a lightweight Go web framework that mimics the structure, design, and fluent API of Java Spring Boot. It includes decorators like `@Controller`, `@GetMapping`, `@PostMapping`, and a fluent `ResponseEntity` builder.
+GoWeb is a lightweight Go web framework that mimics the structure, design, and fluent API of Java Spring Boot. It includes decorators like `@Controller`, `@GetMapping`, `@PostMapping`, and a fluent `ResponseEntity` builder.
 
 ---
 
@@ -72,7 +72,7 @@ Content-Type: application/json
 X-Custom: example
 
 {
-  "message": "Created test"
+  "message": "Created handlers"
 }
 ```
 ---
