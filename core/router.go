@@ -54,9 +54,23 @@ func (r *SpringRouter) RegisterControllers() {
 
 			handler := handlerEntry.Method
 			handlerType := handler.Type()
-			args := []reflect.Value{reflect.ValueOf(handlerEntry.Controller)}
+			args := []reflect.Value{
+				reflect.ValueOf(handlerEntry.Controller),
+				reflect.ValueOf(req.Context()),
+			}
 
-			// Bind @RequestBody if applicable
+			if handlerType.NumIn() == 3 {
+				argType := handlerType.In(2)
+				argVal, err := BindJSONBody(req, argType)
+				if err != nil {
+					response.Status(httpstatus.NOT_FOUND).
+						Body(map[string]string{"error": "Not Found"}).
+						Send(w)
+					return
+				}
+				args = append(args, reflect.ValueOf(argVal))
+			}
+
 			if handlerType.NumIn() == 2 {
 				argType := handlerType.In(1)
 				argVal, err := BindJSONBody(req, argType)
