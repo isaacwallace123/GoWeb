@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"net/http"
 	"reflect"
 	"regexp"
@@ -86,6 +87,10 @@ func (r *SpringRouter) dispatch(w http.ResponseWriter, req *http.Request) {
 		}
 
 		argNames := route.ParamNames
+		if handlerType.NumIn() > 1 && handlerType.In(1) == reflect.TypeOf((*context.Context)(nil)).Elem() {
+			argNames = append([]string{""}, route.ParamNames...)
+		}
+
 		args, err := BindArguments(req, req.Context(), paramTypes, pathVars, argNames)
 		if err != nil {
 			response.Status(httpstatus.BAD_REQUEST).
@@ -95,7 +100,6 @@ func (r *SpringRouter) dispatch(w http.ResponseWriter, req *http.Request) {
 		}
 
 		result := route.Handler.Call(args)
-
 		if len(result) != 1 {
 			response.Status(httpstatus.INTERNAL_SERVER_ERR).
 				Body(map[string]string{"error": "Expected 1 return value"}).
@@ -114,9 +118,7 @@ func (r *SpringRouter) dispatch(w http.ResponseWriter, req *http.Request) {
 		final := chainMiddleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			resp.Send(w)
 		}))
-
 		final.ServeHTTP(w, req)
-
 		return
 	}
 

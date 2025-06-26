@@ -1,3 +1,4 @@
+// core/binder.go
 package core
 
 import (
@@ -15,38 +16,39 @@ func BindArguments(
 	argNames []string,
 ) ([]reflect.Value, error) {
 	args := []reflect.Value{}
+	start := 0
+
+	hasCtx := len(paramTypes) > 0 && paramTypes[0] == reflect.TypeOf((*context.Context)(nil)).Elem()
+	if hasCtx {
+		args = append(args, reflect.ValueOf(ctx))
+		start = 1
+	}
 
 	ctx = WithPathVars(ctx, pathVars)
 	ctx = WithQueryParams(ctx, req)
 	ctx = WithHeaderMap(ctx, req.Header)
 
-	//args = append(args, reflect.ValueOf(ctx))
-
-	for i := 0; i < len(paramTypes); i++ {
+	for i := start; i < len(paramTypes); i++ {
 		t := paramTypes[i]
+		argIdx := i - start
 
 		name := ""
-
-		if i < len(argNames) {
-			name = argNames[i]
+		if argIdx < len(argNames) {
+			name = argNames[argIdx]
 		}
 
 		if t.Kind() == reflect.Struct && (req.Method == http.MethodPost || req.Method == http.MethodPut) {
 			ptr := reflect.New(t).Interface()
 			err := json.NewDecoder(req.Body).Decode(ptr)
-
 			if err != nil {
 				return nil, err
 			}
-
 			args = append(args, reflect.ValueOf(reflect.ValueOf(ptr).Elem().Interface()))
-
 			continue
 		}
 
-		if val := pathVars[name]; val != "" {
+		if val, ok := pathVars[name]; ok {
 			args = append(args, reflect.ValueOf(val))
-
 			continue
 		}
 
