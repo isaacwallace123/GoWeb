@@ -178,3 +178,7 @@ func sendError(w http.ResponseWriter, status int, message string) {
 		Body(map[string]string{"error": message}).
 		Send(w)
 }
+
+func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	r.dispatch(w, req)
+}
