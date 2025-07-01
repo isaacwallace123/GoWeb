@@ -27,7 +27,6 @@ jobs:
         run: go mod tidy
 
       - name: 🔨 Build project
-        working-directory: ./GoWeb
         run: go build -o GoWeb
 
       - name: ✅ Run tests
