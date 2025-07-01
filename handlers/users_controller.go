@@ -1,65 +1,96 @@
 package handlers
 
 import (
-	"fmt"
+	"github.com/isaacwallace123/GoWeb/handlers/Models"
+
+	"github.com/isaacwallace123/GoWeb/core"
 	"github.com/isaacwallace123/GoWeb/httpstatus"
 	"github.com/isaacwallace123/GoWeb/response"
 )
 
 type UsersController struct{}
 
-// Replaced @RestController, @Controller anotations
-func (controller *UsersController) Path() string {
-	return "/users/{id}"
+func (c *UsersController) BasePath() string {
+	return "/users"
 }
 
-var fakeDB = map[string]map[string]string{} // key: id, value: {"name": ..., "email": ...}
+func (c *UsersController) Routes() []core.RouteEntry {
+	return []core.RouteEntry{
+		{Method: "GET", Path: "/", Handler: "GetAll"},
+		{Method: "GET", Path: "/{userid}", Handler: "Get"},
+		{Method: "POST", Path: "/", Handler: "Post"},
+		{Method: "PUT", Path: "/{userid}", Handler: "Put"},
+		{Method: "DELETE", Path: "/{userid}", Handler: "Delete"},
+	}
+}
 
-func (controller *UsersController) Get(id string) *response.ResponseEntity {
-	user, exists := fakeDB[id]
+// key: user ID (int), value: name/email map
+var fakeDB = map[int]map[string]string{}
 
-	fmt.Println(user, exists, id)
-
+func (c *UsersController) Get(userid int) *response.ResponseEntity {
+	user, exists := fakeDB[userid]
 	if !exists {
 		return response.Status(httpstatus.NOT_FOUND).
 			Body(map[string]string{"error": "User not found"})
 	}
 
-	return response.Status(httpstatus.OK).Body(user)
+	return response.Status(httpstatus.OK).Body(Models.UserResponse{
+		Id:    userid,
+		Name:  user["name"],
+		Email: user["email"],
+	})
 }
 
-func (controller *UsersController) Post(id string, req CreateUserRequest) *response.ResponseEntity {
+func (c *UsersController) GetAll() *response.ResponseEntity {
+	users := []Models.UserResponse{}
+	for id, user := range fakeDB {
+		users = append(users, Models.UserResponse{
+			Id:    id,
+			Name:  user["name"],
+			Email: user["email"],
+		})
+	}
+	return response.Status(httpstatus.OK).Body(users)
+}
+
+func (c *UsersController) Post(req Models.UserRequest) *response.ResponseEntity {
 	if req.Name == "" || req.Email == "" {
 		return response.Status(httpstatus.BAD_REQUEST).
 			Body(map[string]string{"error": "Name and Email are required"})
 	}
 
-	fakeDB[id] = map[string]string{"name": req.Name, "email": req.Email}
+	newId := len(fakeDB) + 1
 
-	return response.Status(httpstatus.CREATED).Body(map[string]string{"message": "User created"})
+	fakeDB[newId] = map[string]string{
+		"name":  req.Name,
+		"email": req.Email,
+	}
+
+	return response.Status(httpstatus.CREATED).
+		Body(map[string]any{"message": "User created", "id": newId})
 }
 
-func (controller *UsersController) Put(id string, req UpdateUserRequest) *response.ResponseEntity {
-	user, exists := fakeDB[id]
-
+func (c *UsersController) Put(userid int, req Models.UserRequest) *response.ResponseEntity {
+	user, exists := fakeDB[userid]
 	if !exists {
 		return response.Status(httpstatus.NOT_FOUND).
 			Body(map[string]string{"error": "User not found"})
 	}
 
 	user["name"] = req.Name
-	fakeDB[id] = user
+	user["email"] = req.Email
+	fakeDB[userid] = user
 
-	return response.Status(httpstatus.OK).Body(map[string]string{"message": "User updated"})
+	return response.Status(httpstatus.OK).
+		Body(map[string]string{"message": "User updated"})
 }
 
-func (controller *UsersController) Delete(id string) *response.ResponseEntity {
-	if _, exists := fakeDB[id]; !exists {
+func (c *UsersController) Delete(userid int) *response.ResponseEntity {
+	if _, exists := fakeDB[userid]; !exists {
 		return response.Status(httpstatus.NOT_FOUND).
 			Body(map[string]string{"error": "User not found"})
 	}
 
-	delete(fakeDB, id)
-
+	delete(fakeDB, userid)
 	return response.Status(httpstatus.NO_CONTENT)
 }

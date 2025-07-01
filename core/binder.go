@@ -4,8 +4,10 @@ package core
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"reflect"
+	"strconv"
 )
 
 func BindArguments(
@@ -48,7 +50,16 @@ func BindArguments(
 		}
 
 		if val, ok := pathVars[name]; ok {
-			args = append(args, reflect.ValueOf(val))
+			switch t.Kind() {
+			case reflect.Int:
+				intVal, err := strconv.Atoi(val)
+				if err != nil {
+					return nil, fmt.Errorf("invalid int for %s: %v", name, err)
+				}
+				args = append(args, reflect.ValueOf(intVal))
+			default:
+				args = append(args, reflect.ValueOf(val))
+			}
 			continue
 		}
 

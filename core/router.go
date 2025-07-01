@@ -11,11 +11,11 @@ import (
 	"github.com/isaacwallace123/GoWeb/response"
 )
 
-type Controller interface {
-	Path() string
+type Router struct {
+	routes []CompiledRoute
 }
 
-type routeEntry struct {
+type CompiledRoute struct {
 	Method     string
 	Regex      *regexp.Regexp
 	ParamNames []string
@@ -23,95 +23,86 @@ type routeEntry struct {
 	CtrlValue  reflect.Value
 }
 
-type SpringRouter struct {
-	routes []routeEntry
+type RouteEntry struct {
+	Method  string // e.g. "GET", "POST"
+	Path    string // e.g. "/", "/{userid}"
+	Handler string // e.g. "Get", "Post", "GetAll"
 }
 
-func NewRouter() *SpringRouter {
-	return &SpringRouter{}
+type Controller interface {
+	BasePath() string
+	Routes() []RouteEntry
 }
 
-func RegisterControllers(instances ...Controller) *SpringRouter {
+func NewRouter() *Router {
+	return &Router{}
+}
+
+func RegisterControllers(controllers ...Controller) *Router {
 	r := NewRouter()
 
-	for _, inst := range instances {
-		path := inst.Path()
-		re, paramNames := compilePathPattern(path)
-		val := reflect.ValueOf(inst)
-		typ := reflect.TypeOf(inst)
+	for _, ctrl := range controllers {
+		val := reflect.ValueOf(ctrl)
+		typ := reflect.TypeOf(ctrl)
 
-		for i := 0; i < typ.NumMethod(); i++ {
-			m := typ.Method(i)
-			methodName := strings.ToUpper(m.Name)
+		for _, entry := range ctrl.Routes() {
+			fullPath := joinPath(ctrl.BasePath(), entry.Path)
+			re, paramNames := compilePathPattern(fullPath)
 
-			if isHTTPMethod(methodName) {
-				r.routes = append(r.routes, routeEntry{
-					Method:     methodName,
-					Regex:      re,
-					ParamNames: paramNames,
-					Handler:    val.Method(i),
-					CtrlValue:  val,
-				})
+			if _, ok := typ.MethodByName(entry.Handler); !ok {
+				panic("Handler method not found: " + entry.Handler)
 			}
+
+			r.routes = append(r.routes, CompiledRoute{
+				Method:     strings.ToUpper(entry.Method),
+				Regex:      re,
+				ParamNames: paramNames,
+				Handler:    val.MethodByName(entry.Handler),
+				CtrlValue:  val,
+			})
 		}
 	}
 
 	return r
 }
 
-func (r *SpringRouter) Listen(addr string) error {
+func (r *Router) Listen(addr string) error {
 	http.HandleFunc("/", r.dispatch)
 	return http.ListenAndServe(addr, nil)
 }
 
-func (r *SpringRouter) dispatch(w http.ResponseWriter, req *http.Request) {
+func (r *Router) dispatch(w http.ResponseWriter, req *http.Request) {
 	for _, route := range r.routes {
 		if req.Method != route.Method {
 			continue
 		}
 
-		matches := route.Regex.FindStringSubmatch(req.URL.Path)
+		normalizedPath := normalizePath(req.URL.Path)
+		matches := route.Regex.FindStringSubmatch(normalizedPath)
+
 		if matches == nil {
 			continue
 		}
 
-		pathVars := map[string]string{}
-		for i, name := range route.ParamNames {
-			pathVars[name] = matches[i+1]
-		}
-
-		handlerType := route.Handler.Type()
-		paramTypes := make([]reflect.Type, handlerType.NumIn())
-		for i := 0; i < handlerType.NumIn(); i++ {
-			paramTypes[i] = handlerType.In(i)
-		}
-
-		argNames := route.ParamNames
-		if handlerType.NumIn() > 1 && handlerType.In(1) == reflect.TypeOf((*context.Context)(nil)).Elem() {
-			argNames = append([]string{""}, route.ParamNames...)
-		}
+		pathVars := extractPathVars(route.ParamNames, matches[1:])
+		paramTypes := getParamTypes(route.Handler.Type())
+		argNames := buildArgNames(paramTypes, route.ParamNames)
 
 		args, err := BindArguments(req, req.Context(), paramTypes, pathVars, argNames)
 		if err != nil {
-			response.Status(httpstatus.BAD_REQUEST).
-				Body(map[string]string{"error": err.Error()}).
-				Send(w)
+			sendError(w, httpstatus.BAD_REQUEST, err.Error())
 			return
 		}
 
 		result := route.Handler.Call(args)
 		if len(result) != 1 {
-			response.Status(httpstatus.INTERNAL_SERVER_ERR).
-				Body(map[string]string{"error": "Expected 1 return value"}).
-				Send(w)
+			sendError(w, httpstatus.INTERNAL_SERVER_ERR, "Expected 1 return value")
 			return
 		}
 
 		resp, ok := result[0].Interface().(*response.ResponseEntity)
 		if !ok {
-			response.Status(httpstatus.INTERNAL_SERVER_ERR).
-				Body(map[string]string{"error": "Invalid return type"}).
-				Send(w)
+			sendError(w, httpstatus.INTERNAL_SERVER_ERR, "Invalid return type")
 			return
 		}
 
@@ -122,26 +113,68 @@ func (r *SpringRouter) dispatch(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	response.Status(httpstatus.NOT_FOUND).
-		Body(map[string]string{"error": "Route not found"}).
-		Send(w)
+	sendError(w, httpstatus.NOT_FOUND, "Route not found")
+}
+
+func normalizePath(path string) string {
+	if path != "/" {
+		return strings.TrimRight(path, "/")
+	}
+	return path
+}
+
+func joinPath(base, suffix string) string {
+	base = strings.TrimRight(base, "/")
+	suffix = strings.TrimLeft(suffix, "/")
+
+	full := "/" + strings.TrimLeft(base+"/"+suffix, "/")
+
+	if suffix == "" {
+		full = base
+	}
+
+	return full
 }
 
 func compilePathPattern(path string) (*regexp.Regexp, []string) {
 	paramRegex := regexp.MustCompile(`\{([^}]+)\}`)
 	paramNames := []string{}
+
 	regexStr := paramRegex.ReplaceAllStringFunc(path, func(m string) string {
 		name := m[1 : len(m)-1]
 		paramNames = append(paramNames, name)
 		return "([^/]+)"
 	})
-	return regexp.MustCompile("^" + regexStr + "$"), paramNames
+
+	return regexp.MustCompile("^" + regexStr + "/?$"), paramNames
 }
 
-func isHTTPMethod(name string) bool {
-	switch name {
-	case "GET", "POST", "PUT", "DELETE":
-		return true
+func extractPathVars(names, values []string) map[string]string {
+	vars := make(map[string]string, len(names))
+	for i := range names {
+		vars[names[i]] = values[i]
 	}
-	return false
+	return vars
+}
+
+func getParamTypes(handlerType reflect.Type) []reflect.Type {
+	params := make([]reflect.Type, handlerType.NumIn())
+	for i := 0; i < handlerType.NumIn(); i++ {
+		params[i] = handlerType.In(i)
+	}
+	return params
+}
+
+func buildArgNames(paramTypes []reflect.Type, routeParams []string) []string {
+	hasContext := len(paramTypes) > 0 && paramTypes[0] == reflect.TypeOf((*context.Context)(nil)).Elem()
+	if hasContext {
+		return append([]string{""}, routeParams...)
+	}
+	return routeParams
+}
+
+func sendError(w http.ResponseWriter, status int, message string) {
+	response.Status(status).
+		Body(map[string]string{"error": message}).
+		Send(w)
 }
