@@ -11,7 +11,7 @@ import (
 type UsersController struct{}
 
 func (c *UsersController) BasePath() string {
-	return "/users"
+	return "/api/v1/users"
 }
 
 func (c *UsersController) Routes() []core.RouteEntry {

@@ -1,61 +1,92 @@
 # GoWeb — A Spring Boot-style Web Framework in Go
 
-GoWeb is a lightweight Go web framework that mimics the structure, design, and fluent API of Java Spring Boot. It includes decorators like `@Controller`, `@GetMapping`, `@PostMapping`, and a fluent `ResponseEntity` builder.
+GoWeb is a lightweight Go web framework that mimics the structure, design, and fluent API of Java Spring Boot. It embraces convention over configuration using reflection-based routing, request/response DTOs, and a fluent `ResponseEntity` builder.
 
 ---
 
 ## ✨ Features
 
-- ✅ `@Controller`-style handler registration
-- ✅ `@GetMapping`, `@PostMapping` decorators
-- ✅ Automatic `@RequestBody` binding to structs
-- ✅ Fluent `ResponseEntity` response builder (like Spring Boot)
+- ✅ Spring Boot–style `Controller` structure (`BasePath()` + `Routes()`)
+- ✅ Automatic path variable and request body binding
+- ✅ Strongly-typed `Request` and `Response` DTOs
+- ✅ Fluent `ResponseEntity` response builder
 - ✅ `HttpStatus` constants (e.g. `httpstatus.CREATED`)
-- ✅ Minimal, clean design using the Go standard library
+- ✅ Reflection-powered routing using method signatures
+- ✅ Minimal, clean design using Go standard library only
 
 ---
 
 ## 🚀 Usage
 
-### 1. Define a Controller
+### 1. Define Request/Response DTOs
 
 ```go
-package controllers
-
-type CreateRequest struct {
-    Name string `json:"name"`
+// Models/UserRequest.go
+type UserRequest struct {
+    Name  string `json:"name"`
+    Email string `json:"email"`
 }
 
-type ContainerController struct {
-    // Injected service, etc.
-}
-
-func (c *ContainerController) Create(req CreateRequest) *response.ResponseEntity {
-    return response.Status(httpstatus.CREATED).
-        Body(map[string]string{"message": "Created " + req.Name})
+// Models/UserResponse.go
+type UserResponse struct {
+    Id    int    `json:"id"`
+    Name  string `json:"name"`
+    Email string `json:"email"`
 }
 ```
+### 2. Create a Controller
+```go
+type UsersController struct{}
 
-### 2. Register Routes in main.go
+func (c *UsersController) BasePath() string {
+    return "/users"
+}
 
+func (c *UsersController) Routes() []core.RouteEntry {
+    return []core.RouteEntry{
+        {Method: "GET", Path: "/", Handler: "GetAll"},
+        {Method: "GET", Path: "/{userid}", Handler: "Get"},
+        {Method: "POST", Path: "/", Handler: "Post"},
+        {Method: "PUT", Path: "/{userid}", Handler: "Put"},
+        {Method: "DELETE", Path: "/{userid}", Handler: "Delete"},
+    }
+}
+
+func (c *UsersController) Get(userid int) *response.ResponseEntity {
+    // ...
+}
+```
+### 3. Register Controllers in `main.go`
 ```go
 func main() {
-    router := core.NewRouter()
+    router := core.RegisterControllers(
+        &handlers.UsersController{},
+    )
 
-    decorators.Controller("/containers", &controllers.ContainerController{})
-    decorators.PostMapping("", (*controllers.ContainerController).Create)
+    core.Use(core.LoggingMiddleware)
 
-    router.RegisterControllers()
-    router.Listen(":8080")
+    log.Println("🚀 Server listening on http://localhost:8080")
+    err := router.Listen(":8080")
+    if err != nil {
+        log.Fatal("❌ Server failed:", err)
+    }
 }
-
 ```
 
-## 🧱 Components
-- ✅ `@Controller(basePath string, instance any)` Registers a controller instance with a base route.
-- ✅ `@GetMapping(path string, handler any)` Registers a GET route method.
-- ✅ `@PostMapping(path string, handler any)` Registers a POST route method.
-- ✅ `ResponseEntity` Fluent builder for HTTP responses, like in Spring Boot:
+---
+
+### 🧱 Core Concepts
+
+| Concept           | Description                                                     |
+| ----------------- | --------------------------------------------------------------- |
+| `Controller`      | A struct implementing `BasePath()` and `Routes()`               |
+| `RouteEntry`      | Defines each HTTP method, subpath, and method handler name      |
+| DTOs              | Define `UserRequest`, `UserResponse`, etc. in `Models/` package |
+| `BindArguments()` | Automatically binds path vars and JSON body to method arguments |
+| `ResponseEntity`  | Fluent builder for response body, status, and headers           |
+
+
+### 🧪 Response Builder Example
 
 ```go
 response.Status(httpstatus.OK).
@@ -63,8 +94,8 @@ response.Status(httpstatus.OK).
     Header("X-Test", "Value").
     Send(w)
 ```
----
-## 📌 Example Response
+
+### 📌 Example JSON Response
 
 ```json
 HTTP/1.1 201 Created
@@ -72,10 +103,13 @@ Content-Type: application/json
 X-Custom: example
 
 {
-  "message": "Created handlers"
+  "message": "User created",
+  "id": 1
 }
 ```
----
-## ❤️ Inspired By
+
+### ❤️ Inspired By
+
 - Java Spring Boot
-- Go's minimalistic standard library
+- Go’s minimalistic standard library
+- Clean Architecture principles
