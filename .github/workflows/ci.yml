@@ -26,23 +26,13 @@ jobs:
       - name: 📦 Install dependencies
         run: go mod tidy
 
-      - name: 🔨 Build project
-        run: go build -o GoWeb
-
       - name: ✅ Run tests
         run: go test -v ./...
-
-      - name: 📤 Upload binary (optional)
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: actions/upload-artifact@v4
-        with:
-          name: GoWeb-binary
-          path: ./GoWeb
 
       - name: 🚀 Create GitHub Release (optional)
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v1
         with:
-          files: ./GoWeb
+          generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
