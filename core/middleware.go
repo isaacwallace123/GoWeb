@@ -1,6 +1,9 @@
 package core
 
-import "net/http"
+import (
+	"github.com/isaacwallace123/GoUtils/logger"
+	"net/http"
+)
 
 type Middleware func(http.Handler) http.Handler
 
@@ -17,10 +20,26 @@ func chainMiddleware(final http.Handler) http.Handler {
 	return final
 }
 
-// Example: Logging middleware
+var methodColors = map[string]string{
+	"GET":    "\033[32m",
+	"POST":   "\033[34m",
+	"PUT":    "\033[33m",
+	"DELETE": "\033[31m",
+	"PATCH":  "\033[35m",
+}
+
+const reset = "\033[0m"
+
 func LoggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		println("[LOG]", r.Method, r.URL.Path)
+		color, ok := methodColors[r.Method]
+		if !ok {
+			color = "\033[90m"
+		}
+
+		methodColored := color + r.Method + reset
+		logger.Info("%s %s", methodColored, r.URL.Path)
+
 		next.ServeHTTP(w, r)
 	})
 }
