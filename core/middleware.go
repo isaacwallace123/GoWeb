@@ -1,23 +1,27 @@
 package core
 
 import (
-	"github.com/isaacwallace123/GoUtils/logger"
 	"net/http"
+
+	"github.com/isaacwallace123/GoUtils/logger"
+	"github.com/isaacwallace123/GoWeb/response"
+)
+type Middleware func(next http.Handler, args ...any) http.Handler
+
+const (
+	PRE_MIDDLEWARE 	= 0
+	POST_MIDDLEWARE = 1
 )
 
-type Middleware func(http.Handler) http.Handler
+var premiddlewares []Middleware
+var postmiddlewares []Middleware
 
-var middlewares []Middleware
-
-func Use(mw ...Middleware) {
-	middlewares = append(middlewares, mw...)
-}
-
-func chainMiddleware(final http.Handler) http.Handler {
-	for i := len(middlewares) - 1; i >= 0; i-- {
-		final = middlewares[i](final)
+func Use(priority int, mw ...Middleware){
+	if(priority == 0){
+		premiddlewares = append(premiddlewares, mw...)
+	}else{
+		postmiddlewares = append(postmiddlewares, mw...)
 	}
-	return final
 }
 
 var methodColors = map[string]string{
@@ -27,18 +31,23 @@ var methodColors = map[string]string{
 	"DELETE": "\033[31m",
 	"PATCH":  "\033[35m",
 }
-
 const reset = "\033[0m"
 
-func LoggingMiddleware(next http.Handler) http.Handler {
+func LoggingMiddleware(next http.Handler, args ...any) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		color, ok := methodColors[r.Method]
 		if !ok {
 			color = "\033[90m"
 		}
 
+		arg, ok := args[0].(response.ResponseEntity)
+
+		if(!ok){
+			logger.Info("cool")
+		}
+
 		methodColored := color + r.Method + reset
-		logger.Info("%s %s", methodColored, r.URL.Path)
+		logger.Info("%s %s %d", methodColored, r.URL.Path, arg.StatusCode)
 
 		next.ServeHTTP(w, r)
 	})

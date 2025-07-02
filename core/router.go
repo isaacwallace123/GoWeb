@@ -7,7 +7,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/isaacwallace123/GoWeb/httpstatus"
 	"github.com/isaacwallace123/GoWeb/response"
 )
 
@@ -90,30 +89,40 @@ func (r *Router) dispatch(w http.ResponseWriter, req *http.Request) {
 
 		args, err := BindArguments(req, req.Context(), paramTypes, pathVars, argNames)
 		if err != nil {
-			sendError(w, httpstatus.BAD_REQUEST, err.Error())
 			return
 		}
 
 		result := route.Handler.Call(args)
 		if len(result) != 1 {
-			sendError(w, httpstatus.INTERNAL_SERVER_ERR, "Expected 1 return value")
+			InternalServerException("Expected 1 return value").Send(w)
 			return
 		}
 
 		resp, ok := result[0].Interface().(*response.ResponseEntity)
 		if !ok {
-			sendError(w, httpstatus.INTERNAL_SERVER_ERR, "Invalid return type")
+			InternalServerException("Invalid return type").Send(w)
 			return
 		}
 
-		final := chainMiddleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			resp.Send(w)
-		}))
+		var final http.Handler = http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {})
+
+		// Pre-middlewares
+		for _, ware  := range premiddlewares {
+			final = ware(final)
+		}
+
+		resp.Send(w)
+
+		// Post-middlewares
+		for _, ware  := range postmiddlewares {
+			final = ware(final, resp)
+		}
+
 		final.ServeHTTP(w, req)
 		return
 	}
 
-	sendError(w, httpstatus.NOT_FOUND, "Route not found")
+	NotFoundException("Route not found").Send(w)
 }
 
 func normalizePath(path string) string {
@@ -171,12 +180,6 @@ func buildArgNames(paramTypes []reflect.Type, routeParams []string) []string {
 		return append([]string{""}, routeParams...)
 	}
 	return routeParams
-}
-
-func sendError(w http.ResponseWriter, status int, message string) {
-	response.Status(status).
-		Body(map[string]string{"error": message}).
-		Send(w)
 }
 
 func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
