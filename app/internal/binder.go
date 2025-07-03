@@ -1,5 +1,5 @@
 // app/binder.go
-package app
+package internal
 
 import (
 	"context"
@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"reflect"
 	"strconv"
+
+	"github.com/isaacwallace123/GoWeb/app/types"
 )
 
 func BindArguments(
@@ -26,9 +28,9 @@ func BindArguments(
 		start = 1
 	}
 
-	ctx = WithPathVars(ctx, pathVars)
-	ctx = WithQueryParams(ctx, req)
-	ctx = WithHeaderMap(ctx, req.Header)
+	ctx = types.WithPathVars(ctx, pathVars)
+	ctx = types.WithQueryParams(ctx, req)
+	ctx = types.WithHeaderMap(ctx, req.Header)
 
 	for i := start; i < len(paramTypes); i++ {
 		t := paramTypes[i]
