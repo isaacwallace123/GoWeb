@@ -2,12 +2,12 @@ package tests
 
 import (
 	"bytes"
+	"github.com/isaacwallace123/GoWeb/response"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
-	"github.com/isaacwallace123/GoWeb/core"
-	"github.com/isaacwallace123/GoWeb/response"
+	"github.com/isaacwallace123/GoWeb/app"
 )
 
 type TestUser struct {
@@ -23,8 +23,8 @@ func (c *MockController) BasePath() string {
 	return "/mock"
 }
 
-func (c *MockController) Routes() []core.RouteEntry {
-	return []core.RouteEntry{
+func (c *MockController) Routes() []app.RouteEntry {
+	return []app.RouteEntry{
 		{Method: "GET", Path: "/{id}", Handler: "Get"},
 		{Method: "POST", Path: "/", Handler: "Post"},
 		{Method: "PUT", Path: "/{id}", Handler: "Put"},
@@ -62,9 +62,9 @@ func (c *MockController) Delete(id int) *response.ResponseEntity {
 	return response.Status(http.StatusNoContent)
 }
 
-func setupTestRouter() *core.Router {
+func setupTestRouter() *app.Router {
 	ctrl := &MockController{db: make(map[int]TestUser)}
-	return core.RegisterControllers(ctrl)
+	return app.RegisterControllers(ctrl)
 }
 
 func TestPostUser(t *testing.T) {
