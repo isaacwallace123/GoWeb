@@ -59,16 +59,25 @@ func (c *UsersController) Get(userid int) *response.ResponseEntity {
 ### 3. Register Controllers in `main.go`
 ```go
 func main() {
-    router := core.RegisterControllers(
-        &handlers.UsersController{},
+    // Create router
+    router := app.NewRouter()
+    
+    // Register controllers
+    router.RegisterControllers(
+        &controllers.UsersController{},
     )
-
-    core.Use(core.LoggingMiddleware)
-
-    log.Println("🚀 Server listening on http://localhost:8080")
+	
+	// Register pre-middleware
+	app.Use(middlewares.LoggingPre)
+    
+    // Register post-middleware
+    app.UseAfter(middlewares.LoggingPost)
+    
+    // Launch the server
+    logger.Info("Server listening on http://localhost:8080")
     err := router.Listen(":8080")
     if err != nil {
-        log.Fatal("❌ Server failed:", err)
+        logger.Fatal("Server failed to launch:", err)
     }
 }
 ```
@@ -86,13 +95,23 @@ func main() {
 | `ResponseEntity`  | Fluent builder for response body, status, and headers           |
 
 
-### 🧪 Response Builder Example
-
+### 🧪 Response Builder Examples
+Example of just sending a message:
 ```go
-response.Status(httpstatus.OK).
+ResponseEntity.Status(HttpStatus.OK).
     Body(map[string]string{"hello": "world"}).
     Header("X-Test", "Value").
     Send(w)
+```
+An example of sending an entity
+```go
+newUser := Models.UserResponseModel{
+    Id:    newId,
+    Name:  req.Name,
+    Email: req.Email,
+}
+
+return ResponseEntity.Status(201).Body(newUser)
 ```
 
 ### 📌 Example JSON Response
