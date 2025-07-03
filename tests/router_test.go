@@ -2,12 +2,13 @@ package tests
 
 import (
 	"bytes"
+	"github.com/isaacwallace123/GoWeb/ResponseEntity"
+	"github.com/isaacwallace123/GoWeb/app/types"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
-	"github.com/isaacwallace123/GoWeb/core"
-	"github.com/isaacwallace123/GoWeb/response"
+	"github.com/isaacwallace123/GoWeb/app"
 )
 
 type TestUser struct {
@@ -23,8 +24,8 @@ func (c *MockController) BasePath() string {
 	return "/mock"
 }
 
-func (c *MockController) Routes() []core.RouteEntry {
-	return []core.RouteEntry{
+func (c *MockController) Routes() []app.RouteEntry {
+	return []app.RouteEntry{
 		{Method: "GET", Path: "/{id}", Handler: "Get"},
 		{Method: "POST", Path: "/", Handler: "Post"},
 		{Method: "PUT", Path: "/{id}", Handler: "Put"},
@@ -32,39 +33,39 @@ func (c *MockController) Routes() []core.RouteEntry {
 	}
 }
 
-func (c *MockController) Get(id int) *response.ResponseEntity {
+func (c *MockController) Get(id int) *ResponseEntity.ResponseEntity {
 	user, ok := c.db[id]
 	if !ok {
-		return response.Status(http.StatusNotFound).Body(map[string]string{"error": "Not found"})
+		return ResponseEntity.Status(http.StatusNotFound).Body(map[string]string{"error": "Not found"})
 	}
-	return response.Status(http.StatusOK).Body(user)
+	return ResponseEntity.Status(http.StatusOK).Body(user)
 }
 
-func (c *MockController) Post(req TestUser) *response.ResponseEntity {
+func (c *MockController) Post(req TestUser) *ResponseEntity.ResponseEntity {
 	newID := len(c.db) + 1
 	c.db[newID] = req
-	return response.Status(http.StatusCreated).Body(map[string]any{"id": newID, "user": req})
+	return ResponseEntity.Status(http.StatusCreated).Body(map[string]any{"id": newID, "user": req})
 }
 
-func (c *MockController) Put(id int, req TestUser) *response.ResponseEntity {
+func (c *MockController) Put(id int, req TestUser) *ResponseEntity.ResponseEntity {
 	if _, ok := c.db[id]; !ok {
-		return response.Status(http.StatusNotFound).Body(map[string]string{"error": "Not found"})
+		return ResponseEntity.Status(http.StatusNotFound).Body(map[string]string{"error": "Not found"})
 	}
 	c.db[id] = req
-	return response.Status(http.StatusOK).Body(req)
+	return ResponseEntity.Status(http.StatusOK).Body(req)
 }
 
-func (c *MockController) Delete(id int) *response.ResponseEntity {
+func (c *MockController) Delete(id int) *ResponseEntity.ResponseEntity {
 	if _, ok := c.db[id]; !ok {
-		return response.Status(http.StatusNotFound).Body(map[string]string{"error": "Not found"})
+		return ResponseEntity.Status(http.StatusNotFound).Body(map[string]string{"error": "Not found"})
 	}
 	delete(c.db, id)
-	return response.Status(http.StatusNoContent)
+	return ResponseEntity.Status(http.StatusNoContent)
 }
 
-func setupTestRouter() *core.Router {
+func setupTestRouter() *types.Router {
 	ctrl := &MockController{db: make(map[int]TestUser)}
-	return core.RegisterControllers(ctrl)
+	return types.RegisterControllers(ctrl)
 }
 
 func TestPostUser(t *testing.T) {

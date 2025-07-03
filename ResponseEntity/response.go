@@ -1,4 +1,4 @@
-package response
+package ResponseEntity
 
 import (
 	"encoding/json"

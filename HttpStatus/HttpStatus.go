@@ -1,4 +1,4 @@
-package httpstatus
+package HttpStatus
 
 import "net/http"
 
