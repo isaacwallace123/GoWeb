@@ -1,7 +1,7 @@
 package ResponseEntity
 
 import (
-	"encoding/json"
+	"github.com/isaacwallace123/GoUtils/jsonutil"
 	"net/http"
 )
 
@@ -11,41 +11,49 @@ type ResponseEntity struct {
 	BodyData   any
 }
 
-// Start a new response with HTTP status
-func Status(code int) *ResponseEntity {
+// Build creates a new empty ResponseEntity.
+func Build() *ResponseEntity {
 	return &ResponseEntity{
-		StatusCode: code,
-		Headers:    make(map[string]string),
+		Headers: make(map[string]string),
 	}
 }
 
-// Chainable method to set body
-func (r *ResponseEntity) Body(data any) *ResponseEntity {
-	r.BodyData = data
+// Status starts a new response with an HTTP status and uses Build for consistency.
+func Status(code int) *ResponseEntity {
+	response := Build()
+	response.StatusCode = code
 
-	return r
+	return response
 }
 
-// Chainable method to set headers
-func (r *ResponseEntity) Header(key, value string) *ResponseEntity {
-	r.Headers[key] = value
+// Body Chainable method to set body
+func (response *ResponseEntity) Body(data any) *ResponseEntity {
+	response.BodyData = data
 
-	return r
+	return response
+}
+
+// Header Chainable method to set headers
+func (response *ResponseEntity) Header(key, value string) *ResponseEntity {
+	response.Headers[key] = value
+
+	return response
 }
 
 // Send writes the response
-func (r *ResponseEntity) Send(w http.ResponseWriter) {
-	for k, v := range r.Headers {
-		w.Header().Set(k, v)
+func (response *ResponseEntity) Send(writer http.ResponseWriter) {
+	for k, v := range response.Headers {
+		writer.Header().Set(k, v)
 	}
 
-	if r.BodyData != nil {
-		w.Header().Set("Content-Type", "application/json")
+	if response.BodyData != nil && response.StatusCode != http.StatusNoContent {
+		writer.Header().Set("Content-Type", "application/json")
 	}
 
-	w.WriteHeader(r.StatusCode)
+	writer.WriteHeader(response.StatusCode)
 
-	if r.BodyData != nil {
-		_ = json.NewEncoder(w).Encode(r.BodyData)
+	if response.BodyData != nil && response.StatusCode != http.StatusNoContent {
+		jsonStr := jsonutil.ToString(response.BodyData)
+		_, _ = writer.Write([]byte(jsonStr))
 	}
 }
