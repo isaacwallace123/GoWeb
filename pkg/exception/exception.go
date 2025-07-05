@@ -2,12 +2,22 @@ package exception
 
 import (
 	"github.com/isaacwallace123/GoUtils/timeutil"
-	"github.com/isaacwallace123/GoWeb/HttpStatus"
-	"github.com/isaacwallace123/GoWeb/ResponseEntity"
+	"github.com/isaacwallace123/GoWeb/pkg/HttpStatus"
+	"github.com/isaacwallace123/GoWeb/pkg/ResponseEntity"
 )
 
-func GenericHTTPError(status int, message string) *ResponseEntity.ResponseEntity {
-	return ResponseEntity.Status(status).Body(map[string]any{"status": status, "message": message, "timestamp": timeutil.NowUTC()})
+func GenericHTTPError(status int, message string, extras ...any) *ResponseEntity.ResponseEntity {
+	payload := map[string]any{
+		"status":    status,
+		"message":   message,
+		"timestamp": timeutil.NowUTC(),
+	}
+
+	if len(extras) > 0 {
+		payload["error"] = extras[0]
+	}
+
+	return ResponseEntity.Status(status).Body(payload)
 }
 
 func BadRequestException(message string) *ResponseEntity.ResponseEntity {

@@ -21,13 +21,13 @@ GoWeb is a lightweight Go web framework that mimics the structure, design, and f
 ### 1. Define Request/Response DTOs
 
 ```go
-// Models/UserRequest.go
+// models/UserRequest.go
 type UserRequest struct {
     Name  string `json:"name"`
     Email string `json:"email"`
 }
 
-// Models/UserResponse.go
+// models/UserResponse.go
 type UserResponse struct {
     Id    int    `json:"id"`
     Name  string `json:"name"`

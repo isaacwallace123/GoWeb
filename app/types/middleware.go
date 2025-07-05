@@ -1,7 +1,7 @@
 package types
 
 import (
-	ResponseEntity2 "github.com/isaacwallace123/GoWeb/ResponseEntity"
+	ResponseEntity2 "github.com/isaacwallace123/GoWeb/pkg/ResponseEntity"
 	"net/http"
 )
 

@@ -2,14 +2,14 @@ package internal
 
 import (
 	"context"
+	"github.com/isaacwallace123/GoWeb/pkg/ResponseEntity"
+	"github.com/isaacwallace123/GoWeb/pkg/exception"
 	"net/http"
 	"reflect"
 	"regexp"
 	"strings"
 
-	"github.com/isaacwallace123/GoWeb/ResponseEntity"
 	"github.com/isaacwallace123/GoWeb/app/types"
-	"github.com/isaacwallace123/GoWeb/exception"
 )
 
 // CompiledRoute struct remains unchanged
