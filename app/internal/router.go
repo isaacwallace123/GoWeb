@@ -27,12 +27,15 @@ func RegisterControllersImpl(controllers ...types.Controller) []CompiledRoute {
 	for _, ctrl := range controllers {
 		val := reflect.ValueOf(ctrl)
 		typ := reflect.TypeOf(ctrl)
+
 		for _, entry := range ctrl.Routes() {
 			fullPath := joinPath(ctrl.BasePath(), entry.Path)
 			re, paramNames := compilePathPattern(fullPath)
+
 			if _, ok := typ.MethodByName(entry.Handler); !ok {
 				panic("Handler method not found: " + entry.Handler)
 			}
+
 			compiled = append(compiled, CompiledRoute{
 				Method:     strings.ToUpper(entry.Method),
 				Regex:      re,
@@ -42,6 +45,7 @@ func RegisterControllersImpl(controllers ...types.Controller) []CompiledRoute {
 			})
 		}
 	}
+
 	return compiled
 }
 
@@ -70,13 +74,21 @@ func Dispatch(routes []CompiledRoute, w http.ResponseWriter, req *http.Request) 
 			return
 		}
 
-		// === Middleware chain ===
-		chain := make([]types.MiddlewareFunc, 0, len(types.PreMiddlewares)+1+len(types.PostMiddlewares))
+		// Controller-level pre/post middleware
+		var PreMiddlewares []types.MiddlewareFunc
+		if ctrl, ok := route.CtrlValue.Interface().(interface{ PreMiddleware() []types.MiddlewareFunc }); ok {
+			PreMiddlewares = ctrl.PreMiddleware()
+		}
 
-		// Pre-middleware
+		var PostMiddlewares []types.MiddlewareFunc
+		if ctrl, ok := route.CtrlValue.Interface().(interface{ PostMiddleware() []types.MiddlewareFunc }); ok {
+			PostMiddlewares = ctrl.PostMiddleware()
+		}
+
+		// Build the middleware chain
+		chain := make([]types.MiddlewareFunc, 0, len(types.PreMiddlewares)+len(PreMiddlewares)+1+len(PostMiddlewares)+len(types.PostMiddlewares))
 		chain = append(chain, types.PreMiddlewares...)
-
-		// Handler as "middleware"
+		chain = append(chain, PreMiddlewares...)
 		chain = append(chain, func(ctx *types.MiddlewareContext) error {
 			result := route.Handler.Call(args)
 			if len(result) != 1 {
@@ -90,7 +102,7 @@ func Dispatch(routes []CompiledRoute, w http.ResponseWriter, req *http.Request) 
 			return ctx.Next()
 		})
 
-		// Post-middleware
+		chain = append(chain, PostMiddlewares...)
 		chain = append(chain, types.PostMiddlewares...)
 
 		// Create the middleware context
