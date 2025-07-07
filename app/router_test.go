@@ -1,14 +1,14 @@
 package app
 
 import (
+	"github.com/isaacwallace123/GoWeb/pkg/HttpStatus"
+	"github.com/isaacwallace123/GoWeb/pkg/ResponseEntity"
 	"io"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"github.com/isaacwallace123/GoUtils/jsonutil"
-	"github.com/isaacwallace123/GoWeb/HttpStatus"
-	"github.com/isaacwallace123/GoWeb/ResponseEntity"
 	"github.com/isaacwallace123/GoWeb/app/types"
 )
 
@@ -20,8 +20,8 @@ type TestResponse struct {
 type DummyController struct{}
 
 func (c *DummyController) BasePath() string { return "/api/v1/test" }
-func (c *DummyController) Routes() []types.RouteEntry {
-	return []types.RouteEntry{
+func (c *DummyController) Routes() []types.Route {
+	return []types.Route{
 		{Method: "GET", Path: "/", Handler: "GetAll"},
 		{Method: "POST", Path: "/", Handler: "Post"},
 		{Method: "PUT", Path: "/{id}", Handler: "Put"},
