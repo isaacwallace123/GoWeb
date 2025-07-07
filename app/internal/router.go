@@ -2,7 +2,6 @@ package internal
 
 import (
 	"context"
-	"github.com/isaacwallace123/GoWeb/pkg/ResponseEntity"
 	"github.com/isaacwallace123/GoWeb/pkg/exception"
 	"net/http"
 	"reflect"
@@ -95,7 +94,7 @@ func Dispatch(routes []CompiledRoute, w http.ResponseWriter, req *http.Request) 
 				exception.InternalServerException("Expected 1 return value").Send(w)
 				return nil
 			}
-			resp, ok := result[0].Interface().(*ResponseEntity.ResponseEntity)
+			resp, ok := result[0].Interface().(*types.ResponseEntity)
 			if ok {
 				ctx.ResponseEntity = resp
 			}

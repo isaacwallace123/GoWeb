@@ -52,8 +52,8 @@ func (c *UsersController) Routes() []core.RouteEntry {
     }
 }
 
-func (c *UsersController) Get(userid int) *response.ResponseEntity {
-    // ...
+func (c *UsersController) Get(userid int) *types.ResponseEntity {
+     return ResponseEntity.Status(...).Body(...)
 }
 ```
 ### 3. Register Controllers in `main.go`
@@ -64,11 +64,12 @@ func main() {
     
     // Register controllers
     router.RegisterControllers(
-        &controllers.UsersController{},
+        &controllers.UsersController{}, // You can create a controller through OOP 
+        controllers.New(),              // You can create a controller using the builder
     )
 	
-	// Register pre-middleware
-	app.Use(middlewares.LoggingPre)
+    // Register pre-middleware 
+    app.Use(middlewares.LoggingPre)
     
     // Register post-middleware
     app.UseAfter(middlewares.LoggingPost)
