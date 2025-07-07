@@ -3,3 +3,4 @@ dev/
 main.go
 GoWeb
 Makefile
+__debug*
