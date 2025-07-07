@@ -1,0 +1,24 @@
+name: Go Test (All Pushes)
+
+on:
+  push: # Trigger on *any* branch push
+    branches: [ '**' ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v3
+
+      - name: 🛠 Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.24'
+
+      - name: 📦 Install dependencies
+        run: go mod tidy
+
+      - name: ✅ Run all tests
+        run: go test -v -cover ./...
