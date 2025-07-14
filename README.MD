@@ -58,11 +58,11 @@ type UserResponse struct {
 type UsersController struct{}
 
 func (c *UsersController) BasePath() string {
-    return "/users"
+    return "/api/v1/users"
 }
 
-func (c *UsersController) Routes() []core.RouteEntry {
-    return []core.RouteEntry{
+func (c *UsersController) Routes() []types.Route {
+    return []types.Route{
         {Method: "GET", Path: "/", Handler: "GetAll"},
         {Method: "GET", Path: "/{userid}", Handler: "Get"},
         {Method: "POST", Path: "/", Handler: "Post"},
