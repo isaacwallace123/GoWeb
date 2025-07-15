@@ -56,15 +56,18 @@ func ListenImpl(routes []CompiledRoute, addr string) error {
 }
 
 func Dispatch(routes []CompiledRoute, w http.ResponseWriter, req *http.Request) {
+	normalizedPath := normalizePath(req.URL.Path)
+
 	for _, route := range routes {
-		if req.Method != route.Method {
-			continue
-		}
-		normalizedPath := normalizePath(req.URL.Path)
 		matches := route.Regex.FindStringSubmatch(normalizedPath)
 		if matches == nil {
 			continue
 		}
+
+		if req.Method != route.Method && req.Method != http.MethodOptions {
+			continue
+		}
+
 		pathVars := extractPathVars(route.ParamNames, matches[1:])
 		paramTypes := getParamTypes(route.Handler.Type())
 		argNames := buildArgNames(paramTypes, route.ParamNames)
@@ -73,38 +76,42 @@ func Dispatch(routes []CompiledRoute, w http.ResponseWriter, req *http.Request) 
 			return
 		}
 
-		// Controller-level pre/post middleware
-		var PreMiddlewares []types.MiddlewareFunc
-		if ctrl, ok := route.CtrlValue.Interface().(interface{ PreMiddleware() []types.MiddlewareFunc }); ok {
-			PreMiddlewares = ctrl.PreMiddleware()
+		// --- Controller-level middleware
+		var ctrlPre []types.Middleware
+		if ctrl, ok := route.CtrlValue.Interface().(interface{ PreMiddleware() []types.Middleware }); ok {
+			ctrlPre = ctrl.PreMiddleware()
 		}
 
-		var PostMiddlewares []types.MiddlewareFunc
-		if ctrl, ok := route.CtrlValue.Interface().(interface{ PostMiddleware() []types.MiddlewareFunc }); ok {
-			PostMiddlewares = ctrl.PostMiddleware()
+		var ctrlPost []types.Middleware
+		if ctrl, ok := route.CtrlValue.Interface().(interface{ PostMiddleware() []types.Middleware }); ok {
+			ctrlPost = ctrl.PostMiddleware()
 		}
 
-		// Build the middleware chain
-		chain := make([]types.MiddlewareFunc, 0, len(types.PreMiddlewares)+len(PreMiddlewares)+1+len(PostMiddlewares)+len(types.PostMiddlewares))
-		chain = append(chain, types.PreMiddlewares...)
-		chain = append(chain, PreMiddlewares...)
-		chain = append(chain, func(ctx *types.MiddlewareContext) error {
-			result := route.Handler.Call(args)
-			if len(result) != 1 {
-				exception.InternalServerException("Expected 1 return value").Send(w)
-				return nil
-			}
-			resp, ok := result[0].Interface().(*types.ResponseEntity)
-			if ok {
-				ctx.ResponseEntity = resp
-			}
-			return ctx.Next()
-		})
+		// --- Build the chain
+		chain := make([]types.MiddlewareFunc, 0,
+			len(types.PreMiddlewares)+len(ctrlPre)+1+len(ctrlPost)+len(types.PostMiddlewares),
+		)
 
-		chain = append(chain, PostMiddlewares...)
-		chain = append(chain, types.PostMiddlewares...)
+		chain = append(chain, types.ConvertMiddewaresToFuncs(types.PreMiddlewares)...)
+		chain = append(chain, types.ConvertMiddewaresToFuncs(ctrlPre)...)
 
-		// Create the middleware context
+		if req.Method != http.MethodOptions {
+			chain = append(chain, func(ctx *types.MiddlewareContext) error {
+				result := route.Handler.Call(args)
+				if len(result) != 1 {
+					exception.InternalServerException("Expected 1 return value").Send(w)
+					return nil
+				}
+				if resp, ok := result[0].Interface().(*types.ResponseEntity); ok {
+					ctx.ResponseEntity = resp
+				}
+				return ctx.Next()
+			})
+		}
+
+		chain = append(chain, types.ConvertMiddewaresToFuncs(ctrlPost)...)
+		chain = append(chain, types.ConvertMiddewaresToFuncs(types.PostMiddlewares)...)
+
 		mwCtx := &types.MiddlewareContext{
 			Request:        req,
 			ResponseWriter: w,
@@ -115,14 +122,25 @@ func Dispatch(routes []CompiledRoute, w http.ResponseWriter, req *http.Request) 
 
 		_ = mwCtx.Next()
 
-		// Serve the response if set
 		if mwCtx.ResponseEntity != nil {
 			mwCtx.ResponseEntity.Send(w)
 		}
 		return
 	}
 
-	// Not found
+	if req.Method == http.MethodOptions {
+		mwCtx := &types.MiddlewareContext{
+			Request:        req,
+			ResponseWriter: w,
+			ResponseEntity: nil,
+			Index:          -1,
+			Chain:          types.ConvertMiddewaresToFuncs(types.PreMiddlewares),
+		}
+		_ = mwCtx.Next()
+		return
+	}
+
+	// Fallback
 	exception.NotFoundException("Route not found").Send(w)
 }
 

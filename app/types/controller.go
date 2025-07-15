@@ -8,36 +8,36 @@ type Controller interface {
 type ControllerBase struct {
 	basePath       string
 	routes         []Route
-	preMiddleware  []MiddlewareFunc
-	postMiddleware []MiddlewareFunc
+	preMiddleware  []Middleware
+	postMiddleware []Middleware
 }
 
-// WithBasePath will set the URI of the controller (Like "/api/v1/users")
+// WithBasePath sets the base path for the controller (e.g. "/api/users")
 func (c *ControllerBase) WithBasePath(path string) *ControllerBase {
 	c.basePath = path
 	return c
 }
 
-// WithRoutes adds the routes that will be handled by the controller created
+// WithRoutes adds the route list for this controller
 func (c *ControllerBase) WithRoutes(routes []Route) *ControllerBase {
 	c.routes = routes
 	return c
 }
 
-// Use adds pre-middleware (runs before handler)
-func (c *ControllerBase) Use(mw ...MiddlewareFunc) *ControllerBase {
+// Use adds pre-handler middleware
+func (c *ControllerBase) Use(mw ...Middleware) *ControllerBase {
 	c.preMiddleware = append(c.preMiddleware, mw...)
 	return c
 }
 
-// UseAfter adds post-middleware (runs after handler, before global post-middleware)
-func (c *ControllerBase) UseAfter(mw ...MiddlewareFunc) *ControllerBase {
+// UseAfter adds post-handler middleware
+func (c *ControllerBase) UseAfter(mw ...Middleware) *ControllerBase {
 	c.postMiddleware = append(c.postMiddleware, mw...)
 	return c
 }
 
-// BasePath, Routes, PreMiddleware, & PostMiddleware These are the pre-determined methods that users are essentially FORCED to use because GoWeb uses these methods in the dispatch
-func (c *ControllerBase) BasePath() string                 { return c.basePath }
-func (c *ControllerBase) Routes() []Route                  { return c.routes }
-func (c *ControllerBase) PreMiddleware() []MiddlewareFunc  { return c.preMiddleware }
-func (c *ControllerBase) PostMiddleware() []MiddlewareFunc { return c.postMiddleware }
+// Required interface implementations
+func (c *ControllerBase) BasePath() string             { return c.basePath }
+func (c *ControllerBase) Routes() []Route              { return c.routes }
+func (c *ControllerBase) PreMiddleware() []Middleware  { return c.preMiddleware }
+func (c *ControllerBase) PostMiddleware() []Middleware { return c.postMiddleware }
