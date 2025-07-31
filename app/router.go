@@ -7,7 +7,8 @@ import (
 )
 
 type Router struct {
-	routes []internal.CompiledRoute
+	routes    []internal.CompiledRoute
+	resources []func(http.ResponseWriter, *http.Request) bool
 }
 
 // NewRouter creates a new Router.
@@ -27,5 +28,10 @@ func (r *Router) Listen(addr string) error {
 
 // ServeHTTP allows Router to implement http.Handler.
 func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	for _, handler := range r.resources {
+		if handler(w, req) {
+			return
+		}
+	}
 	internal.Dispatch(r.routes, w, req)
 }
