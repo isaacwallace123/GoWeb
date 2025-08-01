@@ -3,5 +3,5 @@ dev/
 main.go
 GoWeb
 Makefile
-Public/
-Static/
+public/
+static/

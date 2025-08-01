@@ -48,11 +48,8 @@ func RegisterControllersImpl(controllers ...types.Controller) []CompiledRoute {
 	return compiled
 }
 
-func ListenImpl(routes []CompiledRoute, addr string) error {
-	http.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
-		Dispatch(routes, w, req)
-	})
-	return http.ListenAndServe(addr, nil)
+func ListenImpl(router http.Handler, addr string) error {
+	return http.ListenAndServe(addr, router)
 }
 
 func Dispatch(routes []CompiledRoute, w http.ResponseWriter, req *http.Request) {
