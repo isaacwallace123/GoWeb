@@ -2,6 +2,7 @@ package internal
 
 import (
 	"context"
+	"fmt"
 	"github.com/isaacwallace123/GoWeb/pkg/exception"
 	"net/http"
 	"reflect"
@@ -13,11 +14,13 @@ import (
 
 // CompiledRoute struct remains unchanged
 type CompiledRoute struct {
-	Method     string
-	Regex      *regexp.Regexp
-	ParamNames []string
-	Handler    reflect.Value
-	CtrlValue  reflect.Value
+	Path        string
+	Method      string
+	Regex       *regexp.Regexp
+	ParamNames  []string
+	Handler     reflect.Value
+	HandlerName string
+	CtrlValue   reflect.Value
 }
 
 func RegisterControllersImpl(controllers ...types.Controller) []CompiledRoute {
@@ -36,11 +39,13 @@ func RegisterControllersImpl(controllers ...types.Controller) []CompiledRoute {
 			}
 
 			compiled = append(compiled, CompiledRoute{
-				Method:     strings.ToUpper(entry.Method),
-				Regex:      re,
-				ParamNames: paramNames,
-				Handler:    val.MethodByName(entry.Handler),
-				CtrlValue:  val,
+				Path:        fullPath,
+				Method:      strings.ToUpper(entry.Method),
+				Regex:       re,
+				ParamNames:  paramNames,
+				Handler:     val.MethodByName(entry.Handler),
+				HandlerName: fmt.Sprintf("%T.%s", ctrl, entry.Handler),
+				CtrlValue:   val,
 			})
 		}
 	}

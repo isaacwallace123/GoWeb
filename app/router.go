@@ -37,6 +37,20 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	internal.Dispatch(r.routes, w, req)
 }
 
+func (r *Router) ListAllRoutes() []types.Route {
+	routes := make([]types.Route, 0, len(r.routes))
+
+	for _, cr := range r.routes {
+		routes = append(routes, types.Route{
+			Method:  cr.Method,
+			Path:    cr.Path,
+			Handler: cr.HandlerName,
+		})
+	}
+
+	return routes
+}
+
 // UseStatic registers a static file handler for the given URL prefix and directory.
 func (r *Router) UseStatic(prefix, dir string) {
 	if !strings.HasPrefix(prefix, "/") {
