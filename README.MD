@@ -18,7 +18,6 @@ GoWeb is a lightweight Go web framework that mimics the structure, design, and f
 
 ## 📚 Table of Contents
 
-- [✨ Features](#-features)
 - [🚀 Usage](#-usage)
   1. [Define Request/Response DTOs](#1-define-requestresponse-dtos)
   2. [Create a Controller](#2-create-a-controller)
@@ -86,12 +85,6 @@ func main() {
         &controllers.UsersController{}, // You can create a controller through OOP 
         controllers.New(),              // You can create a controller using the builder
     )
-	
-    // Register pre-middleware 
-    app.Use(middlewares.LoggingPre)
-    
-    // Register post-middleware
-    app.UseAfter(middlewares.LoggingPost)
     
     // Launch the server
     logger.Info("Server listening on http://localhost:8080")
@@ -167,6 +160,57 @@ X-Custom: example
 }
 ```
 ---
+
+## ⚙️ Configuration
+
+This project supports simple, extensible configuration using a single JSON file, typically located at `./application.json`. All key server settings—such as port and static resource mappings—are defined here.
+
+### Example Configs
+
+```json
+{
+  "server": {
+    "port": 8080
+  },
+  "static": [
+    { "path": "/public", "directory": "./public" },
+    { "path": "/static", "directory": "./static" }
+  ]
+}
+```
+
+### How It Works
+- **Server Port**
+  - The server listens on the port defined at server.port
+  - you can use any valid port number (e.g., `8080`, `3000`, etc.).
+- **Static Resources**
+  - Each entry in the `static` array maps a URL prefix (`path`) to a directory on disk (`directory`).
+  - For example, requests to `/public/example.png` will serve the file located at `./public/example.png`.
+
+### Adding or Changing Static Resources
+To add more static resources, just simply add new entries in the `static` array:
+```json
+"static": [
+  { "path": "/assets", "directory": "./assets" },
+  { "path": "/media", "directory": "./media" }
+]
+```
+Each mapping supports any valid URL prefix and directory path (relative to your project root)
+### Loading and Using Configs
+On startup, the server loads `application.json` and applies the configuration automatically. Config values are available anywhere in your Go code via the config package (works as a singleton).
+```go
+import "github.com/isaacwallace123/GoWeb/app/config"
+
+// Get the configured port (as string)
+port := config.PortString() // e.g., ":8080"
+
+// Loop through statics
+for _, s := range config.Static {
+    fmt.Println("Serving", s.Path, "from", s.Directory)
+}
+```
+
+---
 ## 🌐 CORS Middleware
 
 GoWeb includes a built-in CORS middleware that allows you to control which origins, methods, and headers are allowed to access your server across different domains. This is especially useful when building frontend-backend systems or public APIs.
@@ -211,7 +255,6 @@ Access-Control-Allow-Origin: https://example.com
 ```
 
 ---
-
 ### ❤️ Inspired By
 
 - Java Spring Boot
