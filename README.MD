@@ -211,14 +211,14 @@ import (
 )
 
 func main() {
-	// This is load your configs into a singleton struct.
+    // This is load your configs into a singleton struct.
     if err := config.LoadConfig("./dev/application.json"); err != nil {
         logger.Fatal("Failed to load config: %v", err)
     }
 
     router := app.NewRouter()
-
-	// UseStatic is a method that will automatically create a static resource URI to the designated directory
+	
+    // UseStatic is a method that will automatically create a static resource URI to the designated directory
     for _, s := range config.Static {
         router.UseStatic(s.Path, s.Directory)
     }
