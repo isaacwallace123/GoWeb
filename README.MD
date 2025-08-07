@@ -26,6 +26,10 @@ GoWeb is a lightweight Go web framework that mimics the structure, design, and f
 - [💡 Why These Matter](#-why-these-matter)
 - [🧪 Response Builder](#-response-builder)
 - [📌 Example JSON Response](#-example-json-response)
+- [⚙️ Configuration](#-configuration)
+  - [Example Configs](#example-configs)
+  - [How It Works](#how-it-works)
+  - [Loading and Using Configs](#loading-and-using-configs)
 - [🌐 CORS Middleware](#-cors-middleware)
   - [✅ Registering the CORS Middleware](#-registering-the-cors-middleware)
   - [⚙️ Behavior](#-behavior)
@@ -101,7 +105,7 @@ func main() {
 GoWeb is built on a clean and extendable foundation inspired by Spring Boot, but optimized for Go. Below are the key architectural components of the framework:
 
 | Concept                     | Description                                                                                                                                                                  |
-| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|-----------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | **`Controller`**            | A struct implementing `BasePath()` and `Routes()` to define a route group. It may embed `ControllerBase` to enable optional controller-specific middleware.                  |
 | **`Route`**                 | Defines a single HTTP endpoint via `Method`, `Path`, and a string-based `Handler` name that maps to a function in the controller.                                            |
 | **DTOs**                    | Plain structs representing request or response data (e.g., `UserRequest`, `UserResponse`). GoWeb automatically binds path/query/body values to arguments.                    |
@@ -112,6 +116,7 @@ GoWeb is built on a clean and extendable foundation inspired by Spring Boot, but
 | **Middleware**              | Middleware objects implement the `Middleware` interface. They're registered globally or per controller using `app.Use(...)` or `controller.Use(...)`.                        |
 | **Middleware Builder**      | Use `NewMiddlewareBuilder(...)` to create strongly-typed, reusable middleware with config (`.Config`), init logic (`.WithInit()`), and error hooks (`.OnError()`).           |
 | **Request Context Helpers** | Access path params, query strings, and headers using `types.PathVar(ctx, "id")`, `QueryParam(ctx, "q")`, and `Header(ctx, "X-Token")`. Injected automatically by the router. |
+| **Configuration**           | A very straight-forward and easy way to manage configurations that your entire project can easily access via the `app/config` util                                           |
 
 ### 💡 Why These Matter
 
@@ -199,14 +204,27 @@ Each mapping supports any valid URL prefix and directory path (relative to your 
 ### Loading and Using Configs
 On startup, the server loads `application.json` and applies the configuration automatically. Config values are available anywhere in your Go code via the config package (works as a singleton).
 ```go
-import "github.com/isaacwallace123/GoWeb/app/config"
+import (
+    "github.com/isaacwallace123/GoWeb/app/config"
+    "github.com/isaacwallace123/GoUtils/logger"
+    "github.com/isaacwallace123/GoWeb/app"
+)
 
-// Get the configured port (as string)
-port := config.PortString() // e.g., ":8080"
+func main() {
+	// This is load your configs into a singleton struct.
+    if err := config.LoadConfig("./dev/application.json"); err != nil {
+        logger.Fatal("Failed to load config: %v", err)
+    }
 
-// Loop through statics
-for _, s := range config.Static {
-    fmt.Println("Serving", s.Path, "from", s.Directory)
+    router := app.NewRouter()
+
+	// UseStatic is a method that will automatically create a static resource URI to the designated directory
+    for _, s := range config.Static {
+        router.UseStatic(s.Path, s.Directory)
+    }
+
+    // Get the configured port (as string)
+    port := config.PortString() // e.g., ":8080"
 }
 ```
 
