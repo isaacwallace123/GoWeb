@@ -27,7 +27,13 @@ var LoggingPost = types.NewMiddlewareBuilder("logging_post", &LoggingConfig{
 }, func(ctx *types.MiddlewareContext, cfg *LoggingConfig) error {
 	if cfg.Enabled && ctx.ResponseEntity != nil {
 		methodColored := color.HTTPMethodToColor[ctx.Request.Method] + ctx.Request.Method + color.Reset
-		logger.Info("%s %s %d", methodColored, ctx.Request.URL.Path, ctx.ResponseEntity.StatusCode)
+		statusColor := color.HTTPStatusToColor(ctx.ResponseEntity.StatusCode)
+
+		logger.Info("%s %s %s%d%s",
+			methodColored,
+			ctx.Request.URL.Path,
+			statusColor, ctx.ResponseEntity.StatusCode, color.Reset,
+		)
 	}
 	return ctx.Next()
 })
